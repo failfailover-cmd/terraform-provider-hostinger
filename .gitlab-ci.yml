@@ -1,0 +1,25 @@
+image: golang:1.21
+
+stages:
+  - test
+  - release
+
+test:
+  stage: test
+  script:
+    - go test -v ./...
+
+release:
+  stage: release
+  image:
+    name: goreleaser/goreleaser:latest
+    entrypoint: ['']
+  only:
+    - tags
+  variables:
+    # Отключаем встроенный токен, используем GITLAB_TOKEN из переменных
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+  before_script:
+    - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
+  script:
+    - goreleaser release --clean
