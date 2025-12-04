@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/yourusername/terraform-provider-hostinger/internal/provider/client"
+	"gitlab.com/a4765/infra/devops/terraform_providers/hostinger/internal/provider/client"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.

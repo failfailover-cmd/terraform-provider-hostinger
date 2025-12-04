@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/yourusername/terraform-provider-hostinger/internal/provider"
+	"gitlab.com/a4765/infra/devops/terraform_providers/hostinger/internal/provider"
 )
 
 // version is set during the release process to the release version of the binary
