@@ -19,7 +19,8 @@ release:
   variables:
     # Отключаем встроенный токен, используем GITLAB_TOKEN из переменных
     GITLAB_TOKEN: $CI_JOB_TOKEN
-  before_script:
-    - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
+  # Временно отключено до настройки GPG ключа
+  # before_script:
+  #   - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
   script:
     - goreleaser release --clean
