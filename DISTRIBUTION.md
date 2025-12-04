@@ -26,8 +26,8 @@ credentials "gitlab.com" {
 terraform {
   required_providers {
     hostinger = {
-      # Замените 'your-group' на группу в GitLab, где лежит проект
-      source  = "gitlab.com/your-group/hostinger"
+      # Путь к провайдеру в GitLab
+      source  = "gitlab.com/a4765/hostinger"
       version = "~> 1.0.0"
     }
   }

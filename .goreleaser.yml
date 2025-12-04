@@ -41,7 +41,7 @@ signs:
 
 release:
   gitlab:
-    owner: your-group-name  # ЗАМЕНИТЕ на вашу группу/пользователя в GitLab
-    name: terraform-provider-hostinger
+    owner: a4765/infra/devops/terraform_providers
+    name: hostinger
   draft: false
   prerelease: auto
