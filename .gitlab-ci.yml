@@ -17,8 +17,8 @@ release:
   only:
     - tags
   variables:
-    # Отключаем встроенный токен, используем GITLAB_TOKEN из переменных
-    GITLAB_TOKEN: $CI_JOB_TOKEN
+    # Используем GITLAB_TOKEN из CI/CD переменных для публикации релизов
+    GITLAB_TOKEN: $GITLAB_TOKEN
   # Временно отключено до настройки GPG ключа
   # before_script:
   #   - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
