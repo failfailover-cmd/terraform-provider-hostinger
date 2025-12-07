@@ -42,8 +42,7 @@ checksum:
 
 release:
   gitlab:
-    # Используем Project ID вместо пути из-за вложенных групп
-    use_project_id: true
-    project_id: 76878163
+    # Используем числовой Project ID
+    owner: "76878163"
   draft: false
   prerelease: auto
