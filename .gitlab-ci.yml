@@ -19,6 +19,8 @@ release:
   variables:
     # Используем GITLAB_TOKEN из CI/CD переменных для публикации релизов
     GITLAB_TOKEN: $GITLAB_TOKEN
+    # Явно указываем ID проекта для goreleaser
+    GITLAB_REPO_ID: "76878163"
   # Временно отключено до настройки GPG ключа
   # before_script:
   #   - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
