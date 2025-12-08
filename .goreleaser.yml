@@ -1,18 +1,12 @@
-version: 2
-
 project_name: terraform-provider-hostinger
 
 # ---------------------------
-#       BUILD SETTINGS
+#          BUILDS
 # ---------------------------
 builds:
-  - env:
+  - id: provider
+    env:
       - CGO_ENABLED=0
-    mod_timestamp: '{{ .CommitTimestamp }}'
-    flags:
-      - -trimpath
-    ldflags:
-      - '-s -w -X main.version={{.Version}}'
     goos:
       - linux
       - windows
@@ -20,40 +14,38 @@ builds:
     goarch:
       - amd64
       - arm64
-    binary: '{{ .ProjectName }}_v{{ .Version }}'
+    ldflags:
+      - "-s -w -X main.version={{.Version}}"
+    binary: "{{ .ProjectName }}_v{{ .Version }}"
 
 # ---------------------------
-#       ARCHIVES
+#         ARCHIVES
 # ---------------------------
 archives:
-  - format: zip
-    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+  - id: release-zip
+    format: zip
     files:
       - LICENSE
       - README.md
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 # ---------------------------
-#       CHECKSUM
+#         CHECKSUMS
 # ---------------------------
 checksum:
-  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
-  algorithm: sha256
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
 
 # ---------------------------
-#       RELEASE (GitLab)
+#         RELEASE (GitLab)
 # ---------------------------
 release:
   gitlab:
-    # GitLab namespace (group/subgroup/subgroup)
     owner: "a4765/infra/devops/terraform_providers"
-    # Repository name
     name: "hostinger"
-    # Токен берётся из $GITLAB_TOKEN автоматически
   draft: false
-  prerelease: auto
 
 # ---------------------------
-#       CHANGES
+#         CHANGELOG
 # ---------------------------
 changelog:
   sort: asc
