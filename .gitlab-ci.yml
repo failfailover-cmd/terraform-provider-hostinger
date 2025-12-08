@@ -13,7 +13,7 @@ test:
 release:
   stage: release
   image:
-    name: goreleaser/goreleaser:latest
+    name: goreleaser/goreleaser:v1.27.1
     entrypoint: ['']
   only:
     - tags
