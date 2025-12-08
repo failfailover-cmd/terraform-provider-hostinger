@@ -1,4 +1,10 @@
+version: 2
+
 project_name: terraform-provider-hostinger
+
+gitlab_urls:
+  api: https://gitlab.com/api/v4/
+  download: https://gitlab.com/
 
 # ---------------------------
 #          BUILDS
@@ -39,9 +45,6 @@ checksum:
 #         RELEASE (GitLab)
 # ---------------------------
 release:
-  gitlab:
-    owner: "a4765/infra/devops/terraform_providers"
-    name: "hostinger"
   draft: false
 
 # ---------------------------
