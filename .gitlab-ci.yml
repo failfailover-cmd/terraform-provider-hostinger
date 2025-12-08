@@ -49,4 +49,33 @@ release:
     - git fetch --depth=1 origin "$CI_COMMIT_SHA"
     - git fetch --tags origin
     - git checkout "$CI_COMMIT_SHA"
-    - goreleaser release --clean
+    - echo "Project ID is $CI_PROJECT_ID"
+    # Build artifacts without publishing
+    - goreleaser release --clean --skip=publish
+    # Publish release using GitLab API directly
+    - |
+      echo "Creating release v1.0.0..."
+      curl --fail --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+           --header "Content-Type: application/json" \
+           --request POST \
+           --data "{\"tag_name\": \"$CI_COMMIT_TAG\", \"name\": \"Release $CI_COMMIT_TAG\", \"description\": \"Terraform Provider for Hostinger $CI_COMMIT_TAG\"}" \
+           "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/releases" || echo "Release already exists, continuing..."
+    # Upload artifacts
+    - |
+      for file in dist/*.zip dist/*SHA256SUMS; do
+        if [ -f "$file" ]; then
+          filename=$(basename "$file")
+          echo "Uploading $filename..."
+          # Upload to package registry
+          curl --fail --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+               --upload-file "$file" \
+               "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/packages/generic/terraform-provider-hostinger/$CI_COMMIT_TAG/$filename"
+          # Add link to release
+          curl --fail --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+               --header "Content-Type: application/json" \
+               --request POST \
+               --data "{\"name\": \"$filename\", \"url\": \"https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/packages/generic/terraform-provider-hostinger/$CI_COMMIT_TAG/$filename\", \"link_type\": \"package\"}" \
+               "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/releases/$CI_COMMIT_TAG/assets/links" || true
+        fi
+      done
+    - echo "Release published successfully!"
