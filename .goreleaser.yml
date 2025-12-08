@@ -41,7 +41,9 @@ checksum:
 #       - "${artifact}"
 
 release:
-  # GitLab релиз будет использовать GITLAB_REPO_ID из переменных окружения
-  gitlab: {}
+  # Используем переменные GitLab CI для определения проекта
+  gitlab:
+    owner: "{{ .Env.CI_PROJECT_NAMESPACE }}"
+    name: "{{ .Env.CI_PROJECT_NAME }}"
   draft: false
   prerelease: auto
