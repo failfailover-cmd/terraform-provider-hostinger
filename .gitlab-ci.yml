@@ -4,18 +4,12 @@ stages:
   - test
   - release
 
-# -------------------------------
-#        TEST STAGE
-# -------------------------------
 test:
   stage: test
   script:
     - go mod download
     - go test -v ./...
 
-# -------------------------------
-#        RELEASE STAGE
-# -------------------------------
 release:
   stage: release
   image:
@@ -25,34 +19,21 @@ release:
     - tags
 
   variables:
-    # Полное клонирование репо (передаётся runner-ом, но не контейнеру!)
     GIT_DEPTH: "0"
-
-    # Токен GitLab для публикации релиза
     GITLAB_TOKEN: $GITLAB_TOKEN
 
   script:
-    # -----------------------------------------
-    # ВОССТАНАВЛИВАЕМ GIT ВНУТРИ КОНТЕЙНЕРА!
-    # (это решает твою проблему repo= и 401)
-    # -----------------------------------------
+    # .git существует, но remote может быть пустым → переопределяем
+    - git remote set-url origin "$CI_REPOSITORY_URL" || git remote add origin "$CI_REPOSITORY_URL"
 
-    # создаём новый git репозиторий
-    - git init
-
-    # добавляем remote origin
-    - git remote add origin "$CI_REPOSITORY_URL"
-
-    # скачиваем нужный коммит
+    # подгружаем коммит
     - git fetch --depth=1 origin "$CI_COMMIT_SHA"
 
-    # скачиваем теги (goreleaser их использует!)
+    # подгружаем теги
     - git fetch --tags origin
 
-    # чекаутим коммит, на котором запущен pipeline
+    # чекаутим нужный коммит
     - git checkout "$CI_COMMIT_SHA"
 
-    # -----------------------------------------
-    # Запускаем GORELEASER
-    # -----------------------------------------
+    # запускаем goreleaser
     - goreleaser release --clean
