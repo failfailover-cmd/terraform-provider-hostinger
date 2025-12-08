@@ -1,4 +1,4 @@
-module github.com/yourusername/terraform-provider-hostinger
+module gitlab.com/a4765/infra/devops/terraform_providers/hostinger
 
 go 1.24.0
 

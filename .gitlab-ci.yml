@@ -1,4 +1,4 @@
-image: golang:1.21
+image: golang:1.24
 
 stages:
   - test
@@ -7,6 +7,7 @@ stages:
 test:
   stage: test
   script:
+    - go mod download
     - go test -v ./...
 
 release:
@@ -18,7 +19,6 @@ release:
     - tags
   variables:
     GIT_DEPTH: "0"
-    # Отключаем встроенный токен, используем GITLAB_TOKEN из переменных
     GITLAB_TOKEN: $GITLAB_TOKEN
   before_script:
     - wget https://go.dev/dl/go1.24.11.linux-amd64.tar.gz
