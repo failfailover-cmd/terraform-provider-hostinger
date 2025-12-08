@@ -21,6 +21,15 @@ release:
     GIT_DEPTH: "0"
     GITLAB_TOKEN: $GITLAB_TOKEN
   before_script:
+    - |
+      if [ -z "$GITLAB_TOKEN" ]; then
+        echo "ERROR: GITLAB_TOKEN is not set!"
+        echo "Please configure GITLAB_TOKEN variable in GitLab CI/CD settings:"
+        echo "Settings -> CI/CD -> Variables -> Add variable"
+        echo "Key: GITLAB_TOKEN"
+        echo "Value: Your GitLab Personal Access Token with 'api' scope"
+        exit 1
+      fi
     - rm -rf /usr/local/go
     - wget https://go.dev/dl/go1.24.11.linux-amd64.tar.gz
     - tar -C /usr/local -xzf go1.24.11.linux-amd64.tar.gz
