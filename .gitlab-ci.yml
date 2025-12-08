@@ -4,11 +4,18 @@ stages:
   - test
   - release
 
+# -------------------------------
+#        TEST STAGE
+# -------------------------------
 test:
   stage: test
   script:
+    - go mod download
     - go test -v ./...
 
+# -------------------------------
+#        RELEASE STAGE
+# -------------------------------
 release:
   stage: release
   image:
@@ -16,15 +23,36 @@ release:
     entrypoint: ['']
   only:
     - tags
+
   variables:
-    # Полное клонирование для goreleaser
-    GIT_DEPTH: 0
-    # Используем GITLAB_TOKEN из CI/CD переменных для публикации релизов
+    # Полное клонирование репо (передаётся runner-ом, но не контейнеру!)
+    GIT_DEPTH: "0"
+
+    # Токен GitLab для публикации релиза
     GITLAB_TOKEN: $GITLAB_TOKEN
-    # Явно указываем ID проекта для goreleaser
-    GITLAB_REPO_ID: "76878163"
-  # Временно отключено до настройки GPG ключа
-  # before_script:
-  #   - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
+
   script:
+    # -----------------------------------------
+    # ВОССТАНАВЛИВАЕМ GIT ВНУТРИ КОНТЕЙНЕРА!
+    # (это решает твою проблему repo= и 401)
+    # -----------------------------------------
+
+    # создаём новый git репозиторий
+    - git init
+
+    # добавляем remote origin
+    - git remote add origin "$CI_REPOSITORY_URL"
+
+    # скачиваем нужный коммит
+    - git fetch --depth=1 origin "$CI_COMMIT_SHA"
+
+    # скачиваем теги (goreleaser их использует!)
+    - git fetch --tags origin
+
+    # чекаутим коммит, на котором запущен pipeline
+    - git checkout "$CI_COMMIT_SHA"
+
+    # -----------------------------------------
+    # Запускаем GORELEASER
+    # -----------------------------------------
     - goreleaser release --clean
