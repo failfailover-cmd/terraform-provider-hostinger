@@ -1,5 +1,3 @@
-version: 2
-
 project_name: terraform-provider-hostinger
 
 gitlab_urls:
