@@ -1,6 +1,8 @@
 module gitlab.com/a4765/infra/devops/terraform_providers/hostinger
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.11
 
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.24.0
