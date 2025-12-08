@@ -50,12 +50,20 @@ release:
     - git fetch --tags origin
     - git checkout "$CI_COMMIT_SHA"
     - echo "Project ID is $CI_PROJECT_ID"
+    - echo "Token prefix ${GITLAB_TOKEN:0:10}..."
+    - echo "Token length ${#GITLAB_TOKEN}"
+    # Test API access
+    - |
+      echo "Testing API access..."
+      curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+           "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID" | head -c 200
+      echo ""
     # Build artifacts without publishing
     - goreleaser release --clean --skip=publish
     # Publish release using GitLab API directly
     - |
-      echo "Creating release v1.0.0..."
-      curl --fail --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+      echo "Creating release $CI_COMMIT_TAG..."
+      curl -v --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
            --header "Content-Type: application/json" \
            --request POST \
            --data "{\"tag_name\": \"$CI_COMMIT_TAG\", \"name\": \"Release $CI_COMMIT_TAG\", \"description\": \"Terraform Provider for Hostinger $CI_COMMIT_TAG\"}" \
