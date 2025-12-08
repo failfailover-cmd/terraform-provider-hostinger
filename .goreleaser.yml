@@ -2,6 +2,9 @@ version: 2
 
 project_name: terraform-provider-hostinger
 
+# ---------------------------
+#       BUILD SETTINGS
+# ---------------------------
 builds:
   - env:
       - CGO_ENABLED=0
@@ -19,20 +22,42 @@ builds:
       - arm64
     binary: '{{ .ProjectName }}_v{{ .Version }}'
 
+# ---------------------------
+#       ARCHIVES
+# ---------------------------
 archives:
   - format: zip
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - LICENSE
+      - README.md
 
+# ---------------------------
+#       CHECKSUM
+# ---------------------------
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
 
+# ---------------------------
+#       RELEASE (GitLab)
+# ---------------------------
 release:
   gitlab:
-    # Используем use_package_registry: false если нужно (по умолчанию true)
-    # Но для идентификации репозитория нужны owner/name.
-    # Если вы хотите использовать ID, часто это делается через owner.
-    # Однако, я пишу то, что вы прислали:
-    project_id: "{{ .Env.CI_PROJECT_ID }}"
+    # GitLab namespace (group/subgroup/subgroup)
+    owner: "a4765/infra/devops/terraform_providers"
+    # Repository name
+    name: "hostinger"
+    # Токен берётся из $GITLAB_TOKEN автоматически
   draft: false
   prerelease: auto
+
+# ---------------------------
+#       CHANGES
+# ---------------------------
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
