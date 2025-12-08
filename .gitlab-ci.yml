@@ -1,0 +1,35 @@
+image: golang:1.21
+
+stages:
+  - test
+  - release
+
+test:
+  stage: test
+  script:
+    - go test -v ./...
+
+release:
+  stage: release
+  image:
+    name: goreleaser/goreleaser:v1.26.2
+    entrypoint: ['']
+  only:
+    - tags
+  variables:
+    GIT_DEPTH: "0"
+    # Отключаем встроенный токен, используем GITLAB_TOKEN из переменных
+    GITLAB_TOKEN: $GITLAB_TOKEN
+  before_script:
+    - wget https://go.dev/dl/go1.24.11.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf go1.24.11.linux-amd64.tar.gz
+    - rm go1.24.11.linux-amd64.tar.gz
+    - export PATH="/usr/local/go/bin:$PATH"
+    - go version
+    - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
+  script:
+    - git remote set-url origin "$CI_REPOSITORY_URL" || git remote add origin "$CI_REPOSITORY_URL"
+    - git fetch --depth=1 origin "$CI_COMMIT_SHA"
+    - git fetch --tags origin
+    - git checkout "$CI_COMMIT_SHA"
+    - goreleaser release --clean
