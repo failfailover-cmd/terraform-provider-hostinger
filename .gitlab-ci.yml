@@ -26,7 +26,12 @@ release:
     - rm go1.24.11.linux-amd64.tar.gz
     - export PATH="/usr/local/go/bin:$PATH"
     - go version
-    - echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty
+    - |
+      if [ -n "$GPG_PRIVATE_KEY" ]; then
+        echo "$GPG_PRIVATE_KEY" | gpg --import --batch --no-tty || echo "GPG import failed, continuing without GPG signing"
+      else
+        echo "GPG_PRIVATE_KEY not set, skipping GPG import"
+      fi
   script:
     - git remote set-url origin "$CI_REPOSITORY_URL" || git remote add origin "$CI_REPOSITORY_URL"
     - git fetch --depth=1 origin "$CI_COMMIT_SHA"
