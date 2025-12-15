@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"gitlab.com/a4765/infra/devops/terraform_providers/hostinger/internal/provider"
+	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider"
 )
 
 // version is set during the release process to the release version of the binary
@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/yourusername/hostinger",
+		Address: "registry.terraform.io/failfailover-cmd/hostinger",
 		Debug:   debug,
 	}
 

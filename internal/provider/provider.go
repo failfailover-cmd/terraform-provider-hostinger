@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"gitlab.com/a4765/infra/devops/terraform_providers/hostinger/internal/provider/client"
+	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider/client"
 )
 
 // Ensure the implementation satisfies the expected interfaces.

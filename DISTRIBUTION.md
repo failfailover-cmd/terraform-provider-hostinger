@@ -27,7 +27,7 @@ terraform {
   required_providers {
     hostinger = {
       # Путь к провайдеру в GitLab
-      source  = "gitlab.com/a4765/hostinger"
+      source  = "failfailover-cmd/hostinger"
       version = "~> 1.0.0"
     }
   }

@@ -1,4 +1,4 @@
-module gitlab.com/a4765/infra/devops/terraform_providers/hostinger
+module github.com/failfailover-cmd/terraform-provider-hostinger
 
 go 1.24.0
 

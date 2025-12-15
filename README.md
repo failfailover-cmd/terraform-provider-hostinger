@@ -28,13 +28,13 @@ make build
 make install
 ```
 
-### Использование из GitLab Package Registry
+### Использование из Terraform Registry
 
 ```hcl
 terraform {
   required_providers {
     hostinger = {
-      source  = "gitlab.com/yourusername/terraform-provider-hostinger"
+      source  = "failfailover-cmd/hostinger"
       version = "~> 1.0"
     }
   }

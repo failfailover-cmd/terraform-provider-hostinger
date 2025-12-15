@@ -1,56 +1,52 @@
 project_name: terraform-provider-hostinger
 
-gitlab_urls:
-  api: https://gitlab.com/api/v4/
-  download: https://gitlab.com/
-
-# ---------------------------
-#          BUILDS
-# ---------------------------
 builds:
-  - id: provider
-    env:
+  - env:
       - CGO_ENABLED=0
     goos:
       - linux
       - windows
       - darwin
+      - freebsd
     goarch:
       - amd64
       - arm64
+      - arm
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm
     ldflags:
       - "-s -w -X main.version={{.Version}}"
     binary: "{{ .ProjectName }}_v{{ .Version }}"
 
-# ---------------------------
-#         ARCHIVES
-# ---------------------------
 archives:
-  - id: release-zip
-    format: zip
-    files:
-      - LICENSE
-      - README.md
+  - format: zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
-# ---------------------------
-#         CHECKSUMS
-# ---------------------------
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
+  algorithm: sha256
 
-# ---------------------------
-#         RELEASE (GitLab)
-# ---------------------------
+signs:
+  - artifacts: checksum
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
 release:
   draft: false
 
-# ---------------------------
-#         CHANGELOG
-# ---------------------------
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
