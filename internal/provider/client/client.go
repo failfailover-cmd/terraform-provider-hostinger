@@ -189,22 +189,39 @@ func (c *Client) DeleteWebsite(domain string) error {
 
 // ListWebsites retrieves all websites
 func (c *Client) ListWebsites() ([]Website, error) {
-	resp, err := c.makeRequest("GET", "/websites", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var allWebsites []Website
+	page := 1
+	perPage := 100
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(resp)
+	for {
+		url := fmt.Sprintf("/websites?page=%d&per_page=%d", page, perPage)
+		resp, err := c.makeRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, handleErrorResponse(resp)
+		}
+
+		var websitesResp WebsitesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&websitesResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allWebsites = append(allWebsites, websitesResp.Data...)
+
+		// Check if we've retrieved all pages
+		totalPages := (websitesResp.Meta.Total + websitesResp.Meta.PerPage - 1) / websitesResp.Meta.PerPage
+		if websitesResp.Meta.CurrentPage >= totalPages || len(websitesResp.Data) == 0 {
+			break
+		}
+
+		page++
 	}
 
-	var websitesResp WebsitesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&websitesResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return websitesResp.Data, nil
+	return allWebsites, nil
 }
 
 // ListOrders retrieves all hosting orders
