@@ -3,14 +3,15 @@ package provider
 import (
 	"context"
 	"os"
+	"time"
 
+	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider/client"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -34,7 +35,11 @@ type hostingerProvider struct {
 
 // hostingerProviderModel maps provider schema data to a Go type.
 type hostingerProviderModel struct {
-	APIToken types.String `tfsdk:"api_token"`
+	APIToken             types.String `tfsdk:"api_token"`
+	MaxRetries           types.Int64  `tfsdk:"max_retries"`
+	BaseBackoffMS        types.Int64  `tfsdk:"base_backoff_ms"`
+	MaxBackoffMS         types.Int64  `tfsdk:"max_backoff_ms"`
+	MinRequestIntervalMS types.Int64  `tfsdk:"min_request_interval_ms"`
 }
 
 // Metadata returns the provider type name.
@@ -52,6 +57,22 @@ func (p *hostingerProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 				Description: "API token for Hostinger API. May also be provided via HOSTINGER_API_TOKEN environment variable.",
 				Optional:    true,
 				Sensitive:   true,
+			},
+			"max_retries": schema.Int64Attribute{
+				Description: "Maximum retry attempts for retryable API errors (429/1015/5xx). Default: 7.",
+				Optional:    true,
+			},
+			"base_backoff_ms": schema.Int64Attribute{
+				Description: "Base backoff in milliseconds for retries. Default: 2000.",
+				Optional:    true,
+			},
+			"max_backoff_ms": schema.Int64Attribute{
+				Description: "Maximum backoff in milliseconds for retries. Default: 60000.",
+				Optional:    true,
+			},
+			"min_request_interval_ms": schema.Int64Attribute{
+				Description: "Minimum delay between API requests in milliseconds. Default: 1200.",
+				Optional:    true,
 			},
 		},
 	}
@@ -76,6 +97,34 @@ func (p *hostingerProvider) Configure(ctx context.Context, req provider.Configur
 			"Unknown Hostinger API Token",
 			"The provider cannot create the Hostinger API client as there is an unknown configuration value for the Hostinger API token. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the HOSTINGER_API_TOKEN environment variable.",
+		)
+	}
+	if config.MaxRetries.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("max_retries"),
+			"Unknown max_retries",
+			"The provider cannot initialize with an unknown max_retries value.",
+		)
+	}
+	if config.BaseBackoffMS.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("base_backoff_ms"),
+			"Unknown base_backoff_ms",
+			"The provider cannot initialize with an unknown base_backoff_ms value.",
+		)
+	}
+	if config.MaxBackoffMS.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("max_backoff_ms"),
+			"Unknown max_backoff_ms",
+			"The provider cannot initialize with an unknown max_backoff_ms value.",
+		)
+	}
+	if config.MinRequestIntervalMS.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("min_request_interval_ms"),
+			"Unknown min_request_interval_ms",
+			"The provider cannot initialize with an unknown min_request_interval_ms value.",
 		)
 	}
 
@@ -109,8 +158,31 @@ func (p *hostingerProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// Create a new Hostinger client using the configuration values
-	hostingerClient := client.NewClient(apiToken)
+	maxRetries := int64(client.MaxRetries)
+	if !config.MaxRetries.IsNull() {
+		maxRetries = config.MaxRetries.ValueInt64()
+	}
+	baseBackoffMS := int64(client.BaseBackoff / time.Millisecond)
+	if !config.BaseBackoffMS.IsNull() {
+		baseBackoffMS = config.BaseBackoffMS.ValueInt64()
+	}
+	maxBackoffMS := int64(client.MaxBackoff / time.Millisecond)
+	if !config.MaxBackoffMS.IsNull() {
+		maxBackoffMS = config.MaxBackoffMS.ValueInt64()
+	}
+	minReqIntervalMS := int64(client.DefaultMinRequestInterval / time.Millisecond)
+	if !config.MinRequestIntervalMS.IsNull() {
+		minReqIntervalMS = config.MinRequestIntervalMS.ValueInt64()
+	}
+
+	// Create a new Hostinger client using the configuration values.
+	hostingerClient := client.NewClientWithConfig(client.Config{
+		APIToken:           apiToken,
+		MaxRetries:         int(maxRetries),
+		BaseBackoff:        time.Duration(baseBackoffMS) * time.Millisecond,
+		MaxBackoff:         time.Duration(maxBackoffMS) * time.Millisecond,
+		MinRequestInterval: time.Duration(minReqIntervalMS) * time.Millisecond,
+	})
 
 	// Make the Hostinger client available during DataSource and Resource
 	// type Configure methods.
