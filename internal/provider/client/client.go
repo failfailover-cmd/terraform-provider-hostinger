@@ -364,7 +364,9 @@ func (c *Client) GetWebsite(domain string) (*Website, error) {
 
 // DeleteWebsite deletes a website from Hostinger
 func (c *Client) DeleteWebsite(domain string) error {
-	resp, err := c.makeRequest("DELETE", "/websites/"+domain, nil)
+	resp, err := c.makeRequest(http.MethodDelete, "/websites/"+domain, map[string]bool{
+		"confirm": true,
+	})
 	if err != nil {
 		return err
 	}
