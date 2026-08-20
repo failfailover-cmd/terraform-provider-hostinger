@@ -100,6 +100,8 @@ func (r *websiteResource) Configure(ctx context.Context, req resource.ConfigureR
 }
 
 func (r *websiteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	var data websiteResourceModel
 
 	// Read Terraform plan data into the model
@@ -135,6 +137,8 @@ func (r *websiteResource) Create(ctx context.Context, req resource.CreateRequest
 }
 
 func (r *websiteResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	var data websiteResourceModel
 
 	// Read Terraform prior state data into the model
@@ -175,6 +179,8 @@ func (r *websiteResource) Read(ctx context.Context, req resource.ReadRequest, re
 }
 
 func (r *websiteResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	// Hostinger API does not support updating website parameters like domain or order_id in place.
 	// Changing these requires recreation, which is handled by PlanModifiers (RequiresReplace).
 	// So this method shouldn't be called for those attributes.
@@ -185,6 +191,8 @@ func (r *websiteResource) Update(ctx context.Context, req resource.UpdateRequest
 }
 
 func (r *websiteResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	var data websiteResourceModel
 
 	// Read Terraform prior state data into the model

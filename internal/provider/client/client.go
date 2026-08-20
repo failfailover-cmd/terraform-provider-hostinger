@@ -352,6 +352,18 @@ func (c *Client) GetWebsite(domain string) (*Website, error) {
 			}
 		}
 
+		if websitesResp.Meta.PerPage <= 0 {
+			// A 2xx response whose body didn't decode into the expected
+			// {data, meta} shape (a degraded/malformed payload from the API
+			// or an edge in front of it) leaves Meta zero-valued rather than
+			// erroring - json.Unmarshal doesn't fail on missing/mismatched
+			// fields. Dividing by PerPage here unconditionally used to panic
+			// the whole provider process (integer divide by zero) with no
+			// recover() anywhere in the call stack, surfacing to Terraform
+			// as "Plugin did not respond" for every other in-flight
+			// resource. Treat it as the last usable page instead.
+			break
+		}
 		totalPages := (websitesResp.Meta.Total + websitesResp.Meta.PerPage - 1) / websitesResp.Meta.PerPage
 		if websitesResp.Meta.CurrentPage >= totalPages || len(websitesResp.Data) == 0 {
 			break
@@ -397,6 +409,12 @@ func (c *Client) ListWebsites() ([]Website, error) {
 
 		allWebsites = append(allWebsites, websitesResp.Data...)
 
+		if websitesResp.Meta.PerPage <= 0 {
+			// See the matching guard in GetWebsite: a degraded/malformed 2xx
+			// body leaves Meta.PerPage at its zero value instead of erroring,
+			// and dividing by it below used to panic the whole process.
+			break
+		}
 		// Check if we've retrieved all pages
 		totalPages := (websitesResp.Meta.Total + websitesResp.Meta.PerPage - 1) / websitesResp.Meta.PerPage
 		if websitesResp.Meta.CurrentPage >= totalPages || len(websitesResp.Data) == 0 {

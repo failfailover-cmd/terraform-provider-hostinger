@@ -95,6 +95,8 @@ func (d *ordersDataSource) Configure(ctx context.Context, req datasource.Configu
 }
 
 func (d *ordersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	var data ordersDataSourceModel
 
 	// Read Terraform configuration data into the model
