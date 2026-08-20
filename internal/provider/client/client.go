@@ -264,16 +264,29 @@ func (c *Client) backoffWithJitter(attempt int) time.Duration {
 func (c *Client) retryAfterOrBackoff(header string, attempt int) time.Duration {
 	if header != "" {
 		if seconds, err := strconv.Atoi(strings.TrimSpace(header)); err == nil && seconds >= 0 {
-			return time.Duration(seconds) * time.Second
+			return capDuration(time.Duration(seconds)*time.Second, c.MaxBackoff)
 		}
 		if t, err := http.ParseTime(header); err == nil {
 			d := time.Until(t)
 			if d > 0 {
-				return d
+				return capDuration(d, c.MaxBackoff)
 			}
 		}
 	}
 	return c.backoffWithJitter(attempt)
+}
+
+// capDuration bounds a server-supplied Retry-After value to MaxBackoff. An
+// upstream rate limiter can return an arbitrarily large Retry-After (minutes
+// to hours); honoring it verbatim turns one resource's Read into a sleep
+// that outlasts CI job timeouts with no visible progress or network activity,
+// indistinguishable from a genuine hang. MaxRetries still bounds the retry
+// count, so callers see a real error instead of an unbounded wait.
+func capDuration(d, max time.Duration) time.Duration {
+	if max > 0 && d > max {
+		return max
+	}
+	return d
 }
 
 func readAPIError(resp *http.Response) *APIError {
