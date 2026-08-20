@@ -103,6 +103,8 @@ func (d *websitesDataSource) Configure(ctx context.Context, req datasource.Confi
 }
 
 func (d *websitesDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	defer recoverIntoDiagnostics(&resp.Diagnostics)
+
 	var data websitesDataSourceModel
 
 	// Read Terraform configuration data into the model
