@@ -1,50 +1,50 @@
-# Как использовать Hostinger Terraform Provider
+# Публикация Hostinger Terraform Provider
 
-Этот провайдер размещен в нашем приватном GitLab Registry.
+Исходники и релизы: https://github.com/failfailover-cmd/terraform-provider-hostinger.
+Terraform Registry source: `failfailover-cmd/hostinger`.
 
-## 1. Настройка доступа (Один раз)
-
-Чтобы Terraform мог скачивать провайдеры из нашего GitLab, нужно добавить токен доступа.
-
-1. Создайте **Personal Access Token** в GitLab:
-   - Scope: `read_api`
-   - [Ссылка для создания](https://gitlab.com/-/profile/personal_access_tokens)
-
-2. Создайте или отредактируйте файл `~/.terraformrc` (на Windows `%APPDATA%\terraform.rc`):
-
-```hcl
-credentials "gitlab.com" {
-  token = "ваш-личный-токен"
-}
-```
-
-## 2. Использование в проекте
-
-В вашем `main.tf` укажите путь к провайдеру:
+## Установка
 
 ```hcl
 terraform {
   required_providers {
     hostinger = {
-      # Путь к провайдеру в GitLab
       source  = "failfailover-cmd/hostinger"
-      version = "~> 1.0.0"
+      version = "~> 1.0"
     }
   }
 }
 
-provider "hostinger" {
-  # Токен можно передать через переменную окружения HOSTINGER_API_TOKEN
-}
-
-resource "hostinger_website" "example" {
-  domain   = "example-internal.com"
-  order_id = 1006933104
-}
+provider "hostinger" {}
 ```
 
-## 3. Установка
+API-токен Hostinger передаётся через `HOSTINGER_API_TOKEN` либо параметр
+`api_token`. GitLab credentials для установки из публичного Terraform
+Registry не нужны. После публикации новой версии существующие стеки
+обновляют provider и lock-файл через `terraform init -upgrade`.
+
+## Релиз
+
+1. Создать PR в `main`; дождаться успешных Tests/build и слить изменения.
+2. Убедиться, что выбранный тег `vX.Y.Z` свободен, а локальная `main`
+   соответствует актуальной `origin/main` с принятым PR.
+3. Создать тег на принятом коммите и запушить его в `origin`.
+4. Workflow `.github/workflows/release.yml` собирает архивы через GoReleaser,
+   подписывает SHA256SUMS и публикует GitHub Release. Версия Go берётся из
+   `go.mod`, версия бинарника — из тега через `main.version`.
+5. Проверить успешное завершение workflow, наличие архивов, SHA256SUMS и
+   подписи в GitHub Release, затем доступность версии в Terraform Registry.
+
+Секреты workflow уже настроены в GitHub Actions: `GPG_PRIVATE_KEY`,
+`PASSPHRASE`; `GITHUB_TOKEN` выдаётся самому job. Не копировать их в репозиторий.
+Публикация версии не обновляет уже запущенные Terraform jobs автоматически.
+
+## Локальная проверка
 
 ```bash
-terraform init
+env -u TF_ACC go test -race ./... -timeout=90s
+go build -o terraform-provider-hostinger .
 ```
+
+Эти проверки не создают сайты и не меняют инфраструктуру. Acceptance-тесты
+с `TF_ACC` используют реальный API и требуют отдельного согласования.

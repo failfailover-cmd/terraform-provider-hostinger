@@ -2,9 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
+	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -13,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/failfailover-cmd/terraform-provider-hostinger/internal/provider/client"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -155,7 +155,7 @@ func (r *websiteResource) Read(ctx context.Context, req resource.ReadRequest, re
 	website, err := r.client.GetWebsite(domain)
 	if err != nil {
 		// If website is not found, remove from state
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, client.ErrWebsiteNotFound) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
