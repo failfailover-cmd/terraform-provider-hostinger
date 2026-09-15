@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,8 +72,8 @@ func TestGetWebsiteDoesNotPanicOnDegradedResponse(t *testing.T) {
 	client.MinRequestInterval = 0
 
 	_, err := client.GetWebsite("not-in-the-degraded-page.example")
-	if err == nil {
-		t.Fatal("GetWebsite() error = nil, want a not-found error")
+	if err == nil || errors.Is(err, ErrWebsiteNotFound) {
+		t.Fatalf("GetWebsite() error = %v, want an inventory error", err)
 	}
 }
 
@@ -87,11 +88,8 @@ func TestListWebsitesDoesNotPanicOnDegradedResponse(t *testing.T) {
 	client.MinRequestInterval = 0
 
 	websites, err := client.ListWebsites()
-	if err != nil {
-		t.Fatalf("ListWebsites() error = %v", err)
-	}
-	if len(websites) != 1 || websites[0].Domain != "other.example" {
-		t.Fatalf("ListWebsites() = %+v, want the single degraded-page entry", websites)
+	if err == nil || websites != nil {
+		t.Fatalf("ListWebsites() = %+v, %v; want no partial inventory and an error", websites, err)
 	}
 }
 

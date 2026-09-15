@@ -35,7 +35,21 @@ type Client struct {
 
 	mu          sync.Mutex
 	lastRequest time.Time
+
+	websitesMu sync.Mutex
+	websites   *websiteSnapshot
 }
+
+// Closing ready publishes an immutable result to every concurrent reader.
+// Each configured client owns its snapshot; no data is shared across accounts.
+type websiteSnapshot struct {
+	ready    chan struct{}
+	byDomain map[string]Website
+	err      error
+}
+
+// ErrWebsiteNotFound means a complete inventory did not contain the domain.
+var ErrWebsiteNotFound = errors.New("website not found")
 
 type Config struct {
 	APIToken           string
@@ -85,9 +99,9 @@ type OrdersResponse struct {
 type WebsitesResponse struct {
 	Data []Website `json:"data"`
 	Meta struct {
-		CurrentPage int `json:"current_page"`
-		PerPage     int `json:"per_page"`
-		Total       int `json:"total"`
+		CurrentPage *int `json:"current_page"`
+		PerPage     *int `json:"per_page"`
+		Total       *int `json:"total"`
 	} `json:"meta"`
 }
 
@@ -316,6 +330,9 @@ func readAPIError(resp *http.Response) *APIError {
 
 // CreateWebsite creates a new website on Hostinger
 func (c *Client) CreateWebsite(domain string, orderID int, datacenterCode string) error {
+	// The server may accept a mutation even if its response is lost. Also
+	// invalidate on errors and on the idempotent "already exists" path.
+	defer c.invalidateWebsites()
 	website := Website{
 		Domain:         domain,
 		OrderID:        orderID,
@@ -338,57 +355,75 @@ func (c *Client) CreateWebsite(domain string, orderID int, datacenterCode string
 	return nil
 }
 
-// GetWebsite retrieves information about a specific website
+// GetWebsite shares one complete inventory load across resource refreshes.
+// ListWebsites deliberately stays fresh for the list data source.
 func (c *Client) GetWebsite(domain string) (*Website, error) {
-	// Hostinger API does not expose a guaranteed direct GET /websites/{domain}
-	// across all accounts, so we scan pages and stop on first match.
-	page := 1
-	perPage := 100
-
 	for {
-		url := fmt.Sprintf("/websites?page=%d&per_page=%d", page, perPage)
-		resp, err := c.makeRequest("GET", url, nil)
-		if err != nil {
-			return nil, err
+		c.websitesMu.Lock()
+		snapshot := c.websites
+		load := snapshot == nil
+		if load {
+			snapshot = &websiteSnapshot{ready: make(chan struct{})}
+			c.websites = snapshot
 		}
+		c.websitesMu.Unlock()
 
-		var websitesResp WebsitesResponse
-		if err := json.NewDecoder(resp.Body).Decode(&websitesResp); err != nil {
-			resp.Body.Close()
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+		if load {
+			c.loadWebsiteSnapshot(snapshot)
 		}
-		resp.Body.Close()
-
-		for _, website := range websitesResp.Data {
-			if website.Domain == domain {
-				return &website, nil
-			}
+		<-snapshot.ready
+		if snapshot.err != nil {
+			return nil, snapshot.err
 		}
-
-		if websitesResp.Meta.PerPage <= 0 {
-			// A 2xx response whose body didn't decode into the expected
-			// {data, meta} shape (a degraded/malformed payload from the API
-			// or an edge in front of it) leaves Meta zero-valued rather than
-			// erroring - json.Unmarshal doesn't fail on missing/mismatched
-			// fields. Dividing by PerPage here unconditionally used to panic
-			// the whole provider process (integer divide by zero) with no
-			// recover() anywhere in the call stack, surfacing to Terraform
-			// as "Plugin did not respond" for every other in-flight
-			// resource. Treat it as the last usable page instead.
-			break
+		c.websitesMu.Lock()
+		current := c.websites == snapshot
+		c.websitesMu.Unlock()
+		if !current {
+			// A mutation invalidated this load while it was in flight.
+			continue
 		}
-		totalPages := (websitesResp.Meta.Total + websitesResp.Meta.PerPage - 1) / websitesResp.Meta.PerPage
-		if websitesResp.Meta.CurrentPage >= totalPages || len(websitesResp.Data) == 0 {
-			break
+		website, found := snapshot.byDomain[domain]
+		if !found {
+			return nil, fmt.Errorf("%w: %s", ErrWebsiteNotFound, domain)
 		}
-		page++
+		return &website, nil // Callers cannot mutate the shared snapshot.
 	}
+}
 
-	return nil, fmt.Errorf("website %s not found", domain)
+// Always release waiters, including if a future API/decoding bug panics.
+// The resource-level panic guard alone cannot unblock other resource reads.
+func (c *Client) loadWebsiteSnapshot(snapshot *websiteSnapshot) {
+	defer func() {
+		if p := recover(); p != nil {
+			snapshot.err = fmt.Errorf("panic while loading website inventory: %v", p)
+		}
+		c.websitesMu.Lock()
+		if snapshot.err != nil && c.websites == snapshot {
+			c.websites = nil // Later calls can retry; failures are not cached.
+		}
+		close(snapshot.ready)
+		c.websitesMu.Unlock()
+	}()
+	websites, err := c.ListWebsites()
+	snapshot.err = err
+	if err != nil {
+		return
+	}
+	snapshot.byDomain = make(map[string]Website, len(websites))
+	for _, website := range websites {
+		snapshot.byDomain[website.Domain] = website
+	}
+}
+
+func (c *Client) invalidateWebsites() {
+	c.websitesMu.Lock()
+	c.websites = nil
+	c.websitesMu.Unlock()
 }
 
 // DeleteWebsite deletes a website from Hostinger
 func (c *Client) DeleteWebsite(domain string) error {
+	defer c.invalidateWebsites()
 	resp, err := c.makeRequest(http.MethodDelete, "/websites/"+domain, map[string]bool{
 		"confirm": true,
 	})
@@ -403,41 +438,45 @@ func (c *Client) DeleteWebsite(domain string) error {
 // ListWebsites retrieves all websites
 func (c *Client) ListWebsites() ([]Website, error) {
 	var allWebsites []Website
-	page := 1
-	perPage := 100
-
-	for {
-		url := fmt.Sprintf("/websites?page=%d&per_page=%d", page, perPage)
-		resp, err := c.makeRequest("GET", url, nil)
+	seen := make(map[string]bool)
+	total, perPage := -1, 0
+	for page := 1; ; page++ {
+		endpoint := fmt.Sprintf("/websites?page=%d&per_page=100", page)
+		resp, err := c.makeRequest(http.MethodGet, endpoint, nil)
 		if err != nil {
 			return nil, err
 		}
-
-		var websitesResp WebsitesResponse
-		if err := json.NewDecoder(resp.Body).Decode(&websitesResp); err != nil {
-			resp.Body.Close()
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
+		var result WebsitesResponse
+		err = json.NewDecoder(resp.Body).Decode(&result)
 		resp.Body.Close()
-
-		allWebsites = append(allWebsites, websitesResp.Data...)
-
-		if websitesResp.Meta.PerPage <= 0 {
-			// See the matching guard in GetWebsite: a degraded/malformed 2xx
-			// body leaves Meta.PerPage at its zero value instead of erroring,
-			// and dividing by it below used to panic the whole process.
-			break
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode websites page %d: %w", page, err)
 		}
-		// Check if we've retrieved all pages
-		totalPages := (websitesResp.Meta.Total + websitesResp.Meta.PerPage - 1) / websitesResp.Meta.PerPage
-		if websitesResp.Meta.CurrentPage >= totalPages || len(websitesResp.Data) == 0 {
-			break
+		meta := result.Meta
+		if result.Data == nil || meta.CurrentPage == nil || meta.PerPage == nil || meta.Total == nil ||
+			*meta.CurrentPage != page || *meta.PerPage <= 0 || *meta.Total < 0 {
+			return nil, fmt.Errorf("invalid websites pagination on page %d", page)
 		}
-
-		page++
+		if page == 1 {
+			total, perPage = *meta.Total, *meta.PerPage
+		} else if *meta.Total != total || *meta.PerPage != perPage {
+			return nil, fmt.Errorf("websites pagination changed during inventory load on page %d", page)
+		}
+		expected := min(perPage, total-len(allWebsites))
+		if len(result.Data) != expected {
+			return nil, fmt.Errorf("incomplete websites page %d: got %d entries, expected %d", page, len(result.Data), expected)
+		}
+		for _, website := range result.Data {
+			if website.Domain == "" || seen[website.Domain] {
+				return nil, fmt.Errorf("empty or duplicate website domain on page %d", page)
+			}
+			seen[website.Domain] = true
+			allWebsites = append(allWebsites, website)
+		}
+		if len(allWebsites) == total {
+			return allWebsites, nil
+		}
 	}
-
-	return allWebsites, nil
 }
 
 // ListOrders retrieves all hosting orders
